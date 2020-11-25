@@ -2,6 +2,10 @@
 title: "03_stat-analysis"
 output: html_notebook
 ---
+```{r}
+library(rmarkdown)
+library(knitr)
+```
 
 ```{bash}
 sudo apt-get install libglpk-dev 
