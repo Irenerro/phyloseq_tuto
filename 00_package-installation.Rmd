@@ -42,6 +42,15 @@ Installation des packages: création liste des packages à télécharger
 .bioc_packages <- c("genefilter", "impute")
 ```
 
+```{bash}
+wget https://zenodo.org/record/3986799/files/silva_nr99_v138_wSpecies_train_set.fa.gz
+
+```
+
+```{bash}
+wget https://zenodo.org/record/3986799/files/silva_species_assignment_v138.fa.gz
+```
+
 ```{r}
 install.packages(.cran_packages)
 devtools::install_github(.github_packages)
