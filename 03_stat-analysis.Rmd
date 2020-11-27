@@ -1,26 +1,35 @@
 ---
 title: "03_stat-analysis"
-output: html_notebook
+author: Irene Romero Rodríguez
+  output:
+  github_document:
+    toc: TRUE
+    toc_depth: 2
 ---
+
+# Introduction: Packages
+
+Nous allons continuer ici, à partir des données traitées avec dada2, l'analyse de nos échantillons. Pour ce faire nous allons travailler avec le package phyloseq ainsi que des packages permettant de tracer diverses figures graphiques. 
+
 ```{r}
 library(rmarkdown)
 library(knitr)
-```
-
-```{bash}
-sudo apt-get install libglpk-dev 
-```
-```{r}
-BiocManager::install("phyloseq")
-```
-```{r}
 library(phyloseq); packageVersion("phyloseq")
-```
-```{r}
 library(Biostrings); packageVersion("Biostrings")
 library(ggplot2); packageVersion("ggplot2")
+library(dada2)
+library(DECIPHER)
+library(phangorn)
 ```
-Creation de variables et d'un environnement de travail(data.frame):
+
+rmarkdown est un package qui permet la création de documents dynamiques. Grâce à ce package on peut créer des outputs qui peuvent être plus ésthétiques. knitr est un package ayant plusieurs utilités cependant ici on va l'utiliser avec la fonction knit avec le propos de créer un document github à la fin. Quand on utilise cette fonction ce que l'on est entraîn de faire est de prendre toutes les données entrées dans le document; extraction du code en R suivant une liste de modèles et rédigeant le résultat dans un document de sortie (output). Biostring est un package permettant le traitement de données biologiques écrites en chaîne de caractères. Cet outil va répertorier des grandes quantités de chaînes de caractères, comme par exemple des séquences de nucléotides et peut les comparer entre elles (un exemple de une des fonctions contenues dans le package de Biostring). ggplot2 est un package contenant des outils pour la création de graphiques suivant les consignes de l'utilisateur: quel graphique est quoi; étiquettes; couleurs... DECIPHER est un autre package de bioconductor (comme Biostring) qui permet de curer, analyser et manipuler des séquences biologiques (comme par exemple aligner des séquences). Finalement phangorn est un package contenant des outils et méthodes permettant la formation d'arbres phylogénetiques (comme Maximum likelihood ou Maximum Parsimony). 
+
+*Fun fact*: Lors de la première séance de TP je me disais bien que "phangorn" me disait quelque chose. C'est une excellente référence (probablement...en tout cas je l'espère sinon je serai déçue) au Seigneur des Anneaux. En effet la fôret de Treebeard (apparament Sylvebarbe en français, Barbol en espagnol) est aussi nommée la fôret de *F*angorn (avec F mais même prononciation). Ce qui est encore plus drôle c'est que dans cette fôret on retrouve des êtres millenaires et anciens, donc la ressemblence avec faire un arbre phylogénétique, qui permet de retrouver les liens de parenté en fonction de l'évolution me paraît tout simplement géniale. 10/10 à la personne qui a eu l'idée (j'espère qu'en faisant exprès sinon s'il vous plaît ne me jugez pas, j'aime beaucoup l'ouvrage, c'est tout). 
+
+# Objet phyloseq
+
+Sur cette étape on va créer une data.frame qui est un tableau dans lequel vont être repertoriées des informations des échantillons. Pour ce faire on commence par créer un environnement de travail adéquat.
+
 ```{r}
 samples.out <- rownames(seqtab.nochim)
 subject <- sapply(strsplit(samples.out, "D"), `[`, 1)
@@ -33,14 +42,21 @@ samdf$When[samdf$Day>100] <- "Late"
 rownames(samdf) <- samples.out
 ```
 
-Construction d'un objet phyloseq à partir des résultats de dada2: 
+ On extrait l'information des rangées de la table où on a stocké nos informations une fois que les chimères ont été éliminées. Ensuite on change le nom de ces informations (échantillons) et on ajoute un D. Ces nouveaux noms sont stockés sur l'objet subject. Ensuite on extrait certaines des informations concernant ces subjects et on les assigne à des objets nommés respectivement en fonction de l'information qu'ils contiennent comme gender. On extrait aussi le jour. Ensuite on crée la data frame qui va avoir en rangées les informations concernant aux samples. En colonnes on va avoir le sujet; le genre; le jour et une colonne pour spécifier si c'est un prélévement effectué tôt ou tard en fonction des jours. 
+
+Ensuite on fait la construction d'un objet phyloseq à partir des résultats de dada2: 
+
 ```{r}
 ps <- phyloseq(otu_table(seqtab.nochim, taxa_are_rows=FALSE), 
                sample_data(samdf), 
                tax_table(taxa))
 ps <- prune_samples(sample_names(ps) != "Mock", ps) # Remove mock sample
 ```
-On procede à attribuer des string chain plus courtes au noms des dossiers afin d'avoir plus de facilité pour travailler sur des tableaux par exemple. On veut cependant garder la séquence en entier, pour cela on va garder la séquence sur le refseq slot de l'objet et renommer le taxa pour un nom plus court:
+
+Cet objet phyloseq va contenir une table d'observation avec les OTU; les informations extraites grâce à la data.frame et une table taxonomique. De plus, on élimine la communauté mock.
+
+On procede maintenant à attribuer des string chains plus courtes aux noms des dossiers afin d'avoir plus de facilité pour travailler sur des tableaux par exemple. On veut cependant garder la séquence en entier, pour cela on va garder la séquence sur le refseq slot de l'objet et renommer le taxa pour un nom plus court:
+
 ```{r}
 dna <- Biostrings::DNAStringSet(taxa_names(ps))
 names(dna) <- taxa_names(ps)
@@ -48,58 +64,92 @@ ps <- merge_phyloseq(ps, dna)
 taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
 ps
 ```
-On voit ci-dessus l'objet ps
+
+On voit ci-dessus l'objet ps et on a donc un bilan des tables formées avec cet objet comme la table d'observation.
+
+# L'alpha diversité
+
 On utilise maintenant cet objet pour travailler avec phyloseq et faire des études sur les données: 
-On commence par l'alpha-diversité en traçant les graphiques d'alpha diversité en fonction de l'indice de Shannon dans un premier temps, et de Simpson deuxièmement. On distingue deux temps qui sont regroupés par un changement de couleur. 
+On commence par l'alpha-diversité en traçant les graphiques d'alpha diversité en fonction de l'indice de Shannon dans un premier temps, et de Simpson deuxièmement. On distingue les deux temps de l'échantillonnage qui sont regroupés par un changement de couleur. 
+
 ```{r}
 plot_richness(ps, x="Day", measures=c("Shannon", "Simpson"), color="When")
 ```
-On continue par effectuer une ordination pour l'étude par groupes:
+
+La fonction plot richness permet d'estimer la richesse au sein des échantillons et remets ces infos vers une figure ggplot2 (graphique). Cette estimation est effectuée donc premièrement par des mesures en applicant l'indice de Shannon puis de Simpson comme indiqué sur l'assignation de measures. De plus on choisi de mettre des couleurs qui vont être différents en fonction de la variable "When". Ces données tel quelles ne nous montrent pas vraiment de différence de richesse en fonction du temps de l'échantillonnage. Il faut passer par une ordination.
+
+## Ordination.
+
+On continue donc en effectuant une ordination pour l'étude par groupes:
+
 ```{r}
 # Transform data to proportions as appropriate for Bray-Curtis distances
 ps.prop <- transform_sample_counts(ps, function(otu) otu/sum(otu))
 ord.nmds.bray <- ordinate(ps.prop, method="NMDS", distance="bray")
 ```
 
-Et on trace le graphique des résultats de l'ordination:
+La première étape de ce code permet de transformer les valeurs trouvées dans l'OTU (et grâce à celle ci) en abondances relatives. Ensuite on crée une ordination avec ces mesures. La fonction ordinate permet de créer cette ordination. Le choix d'ordination est ici NMDS (Non metric multidimensinal scaling) qui est une méthode basée dans les rangs afin de représenter la dissimilarité. On utilise la distance de Bray-Curtis afin de mesurer la dissimilarité entre échantillons.
+
+Et on trace le graphique de l'ordination:
+
 ```{r}
 plot_ordination(ps.prop, ord.nmds.bray, color="When", title="Bray NMDS")
 ```
 
-Finalement on effectue un graphique de barres pour observer l'abondance relative des espèces en fonction de leur groupe (Early ou late). On choisi les 20 plus abondantes:
+Grâce à cette ordination on observe en effet deux groupes bien distincts détérminés par un échantillonnage fait tôt ou tard. 
+
+## Graphique de barres (abondance relative).
+
+On finalise cette partie de l'étude en effectuant un graphique de barres pour observer l'abondance relative des espèces en fonction de leur groupe (Early ou late). On choisi les 20 plus abondantes:
+
 ```{r}
 top20 <- names(sort(taxa_sums(ps), decreasing=TRUE))[1:20]
 ps.top20 <- transform_sample_counts(ps, function(OTU) OTU/sum(OTU))
 ps.top20 <- prune_taxa(top20, ps.top20)
 plot_bar(ps.top20, x="Day", fill="Family") + facet_wrap(~When, scales="free_x")
 ```
-```{r}
-library(dada2)
-library(ggplot2)
-library(DECIPHER)
-library(phangorn)
-```
+
+On n'observe pas vraiment de différence sgnificative pouvant expliquer la distinction en groupes.On peut à la limite dire qu'il y a légèrement plus de Bacteriodaceae; Rikenellaceae et des NA dans les échantillons du groupe early. Mais encore une fois les différences ne sont pas très grandes comme pour pouvoir dire de façon sûre que ce soit à cause de ça.
+
+# Ajout d'échantillons
+
+Pour le reste du tutoriel phyloseq nous avons téléchargé des données basées sur la même étude que depuis le début, mais ayant plus d'échantillons. Ces données ont déjà été traitées.
 
 ```{r}
 ps_connect <-url("https://raw.githubusercontent.com/spholmes/F1000_workflow/master/data/ps.rds")
 ps = readRDS(ps_connect)
 ps
 ```
+
+# Filtrage
+
+Dans cette partie nous allons filtrer nos données de travail. Cependant, contrairement au filtrage fait sur la partie de DADA2 ici nous allons filtrer en fonction, d'une part de la taxonomie, et d'autre part en fonction de la prévalence des taxons dans les échantillons. 
+
+## Filtage taxonomique
+
+Afin de pouvoir faire un filtrage et ne pas tenir en compte les espèces moins abondantes qui peuvent être issues d'erreurs de séquençage on commence par analyser les rangs puis ensuite on choisi un niveau auquel on veut étudier pour filtrer nos échantillons.
+
 # Show available ranks in the dataset
 ```{r}
 rank_names(ps)
 ```
 
+Ici on voit que l'on a des données allant depuis Kingdom (Domaine) jusqu'au genus. Nous allons évaluer l'abondance présente dans chaque phylum; pour cela on reprend la table de données taxonomiques crée avec phyloseq et stockée dans l'objet phyloseq ps. 
+
 ```{r}
 # Create table, number of features for each phyla
 table(tax_table(ps)[, "Phylum"], exclude = NULL)
 ```
-An useful next step is to explore feature prevalence in the dataset, which we will define here as the number of samples in which a taxon appears at least once.
 
-On enleve les NA qui sont uncharacterized:
+On observe grâce à cette table qu'il y a plusieurs phylums dans lesquels on n'observe qu'une seule caractéristique dans les échantillons. Du fait de leur faible abondance ces phylums seraient intéressants à filtrer. Cependant ici on se centre plutôt sur les 6 NA. En fait on s'est placé au niveau du Phylum parceque justement c'est un ordre supérieur de classification. On sait que l'on travaille ici avec des bactéries, donc étudier au niveau du domaine n'est pas intéressant. Cependant au niveau du Phylum on observe quand même que l'on a des séquences auxquelles on ne peut pas attribuer une taxonomie. A moins d'être entraîn de travailler dans un projet innovateur de séquençage voulant trouver des souches bactériennes nouvelles (et encore il faudrait se méfier), et ici ce n'est pas le cas, ces séquences sont probablement issues d'artifacts. 
+
+On va donc enlever les "NA" d'entre nos séquences:
+
 ```{r}
 ps <- subset_taxa(ps, !is.na(Phylum) & !Phylum %in% c("", "uncharacterized"))
 ```
+
+
 
 
 ```{r}
