@@ -123,13 +123,13 @@ ps
 
 # Filtrage
 
-Dans cette partie nous allons filtrer nos données de travail. Cependant, contrairement au filtrage fait sur la partie de DADA2 ici nous allons filtrer en fonction, d'une part de la taxonomie, et d'autre part en fonction de la prévalence des taxons dans les échantillons. 
+Dans cette partie nous allons filtrer nos données de travail. Cependant, contrairement au filtrage fait sur la partie de DADA2 ici nous allons filtrer grâce, d'une part de la taxonomie, et d'autre part en fonction de la prévalence des taxons dans les échantillons. 
 
 ## Filtage taxonomique
 
 Afin de pouvoir faire un filtrage et ne pas tenir en compte les espèces moins abondantes qui peuvent être issues d'erreurs de séquençage on commence par analyser les rangs puis ensuite on choisi un niveau auquel on veut étudier pour filtrer nos échantillons.
 
-# Show available ranks in the dataset
+### Show available ranks in the dataset
 ```{r}
 rank_names(ps)
 ```
@@ -141,7 +141,7 @@ Ici on voit que l'on a des données allant depuis Kingdom (Domaine) jusqu'au gen
 table(tax_table(ps)[, "Phylum"], exclude = NULL)
 ```
 
-On observe grâce à cette table qu'il y a plusieurs phylums dans lesquels on n'observe qu'une seule caractéristique dans les échantillons. Du fait de leur faible abondance ces phylums seraient intéressants à filtrer. Cependant ici on se centre plutôt sur les 6 NA. En fait on s'est placé au niveau du Phylum parceque justement c'est un ordre supérieur de classification. On sait que l'on travaille ici avec des bactéries, donc étudier au niveau du domaine n'est pas intéressant. Cependant au niveau du Phylum on observe quand même que l'on a des séquences auxquelles on ne peut pas attribuer une taxonomie. A moins d'être entraîn de travailler dans un projet innovateur de séquençage voulant trouver des souches bactériennes nouvelles (et encore il faudrait se méfier), et ici ce n'est pas le cas, ces séquences sont probablement issues d'artifacts. 
+On observe grâce à cette table qu'il y a plusieurs phylums dans lesquels on n'observe qu'une seul élément caractéristique à ces phylums dans les échantillons. Du fait de leur faible abondance ces phylums seraient intéressants à filtrer. Cependant ici on se centre plutôt sur les 6 NA. En fait on s'est placé au niveau du Phylum parceque justement c'est un ordre supérieur de classification. On sait que l'on travaille ici avec des bactéries, donc étudier au niveau du domaine n'est pas intéressant. Cependant au niveau du Phylum on observe quand même que l'on a des séquences auxquelles on ne peut pas attribuer une taxonomie. A moins d'être entraîn de travailler dans un projet innovateur de séquençage voulant trouver des souches bactériennes nouvelles (et encore il faudrait se méfier), et ici ce n'est pas le cas, ces séquences sont probablement issues d'artifacts. 
 
 On va donc enlever les "NA" d'entre nos séquences:
 
@@ -149,7 +149,7 @@ On va donc enlever les "NA" d'entre nos séquences:
 ps <- subset_taxa(ps, !is.na(Phylum) & !Phylum %in% c("", "uncharacterized"))
 ```
 
-
+Maintenant on va faire un étude de prévalence pour ensuite filtrer ces mêmes données de prévalence:
 
 
 ```{r}
@@ -163,9 +163,19 @@ prevdf = data.frame(Prevalence = prevdf,
                     tax_table(ps))
 ```
 
+
+Grâce à la fonction apply nous allons créer un objet prevdf dans lequel nous allons extraire le nombre de fois qu’un phylum apparait sur un échantillon en prennant en compte qu’il doit apparaitre au moins une fois (x>0). Ensuite on crée une table de données (data frame) contenant la prévalence définie sur prevdf avant, ainsi que l’abondance totale (somme des taxa de l’objet ps) et la table taxonomique de ps.
+
 ```{r}
 plyr::ddply(prevdf, "Phylum", function(df1){cbind(mean(df1$Prevalence),sum(df1$Prevalence))})
 ```
+
+Grâce à la fonction plyr::ddply nous avons crée une table/matrice.  Grâce à la fonction cbind on donne des instructions à la fonction ddply de calculer les moyenne des prévalences dans les échantillons (qui vont apparaître en une première colonne) et la somme des prévalence dans les échantillons, c'est à dire le nombre de fois total dans lequel on retrouve des séquences appartenant à un tel ou un autre phylum entre tous les échantillons (prévalence totale, qui apparaît dans la deuxième colonne). Avant le cbind on choisi de faire cette matrice sur les données du Phylum de l’objet prevdf.
+
+On observe sur la table sur laquelle on a évaluée les abondances respectives de données en fonction du que en effet il y a dans 13 écahntillons des éléments de actinobacteria, si on divise le nombre total de séquences d’actinobactéria (prévalence totale) par la prévalence moyenne on trouve 13 soit le nombre total d'échantillons dans lesquels ça apparait. 
+On observe pour fusobacteria qu’il y a que 2 séquences ayant en plus une fréquence d’apparition de 1% donc c’est probablement deux séquences issues d'erreurs de séquençage. Surtout en comparant au nombre d'apparition d'autres séquences. Quant à Deinococcus; Verrumicrobia et Tenericutes il y a quand même une quantité de prévalence de la sequence plutôt importante. Cependant on va enlever les deinococcus pour l’exemple même si comme ça apparait 52 fois ça commence a être possible que ce soit une bactérie qui apparait en très petite quantité car elle est pas abondante dans le milieu de prélevement. 
+
+Nous avons donc vu et décidé qu'il faut enlever les séquences correspondants aux phylum Fusobacteria et Deinococcus-Thermus. On crée un nouveau objet filterPhyla dans lequel on garde ces séquences, puis grâce à la fonction subset_taxa on enlève de ps ces données, et on stocke le résultat dans un nouveau objet phyloseq:ps1.
 
 ```{r}
 # Define phyla to filter
@@ -174,6 +184,10 @@ filterPhyla = c("Fusobacteria", "Deinococcus-Thermus")
 ps1 = subset_taxa(ps, !Phylum %in% filterPhyla)
 ps1
 ```
+
+## Filtration de prévalence.
+
+Nous avons maintenant des données de prévalence en fonction du Phylum. Cependant on peut encore filtrer ces données. On commence par sélectioner les données de prévalence de l'objet ps1 en se centrant que sur le Phylum. Ensuite on trace des graphiques: graphique par Phylum sur lesquels on donne des paramètres aesthetiques dans lesquelles on veut dans l'axe x l'abondance totale; en axe y la prévalence au sein du phylum des échantillons de ps et on veut une couleur par phylum. On choisit de même de rajouter une ligne à 0,05 soit 5% de prévalence dans les divers phylums, cette ligne est une ligne de type 2 (non continue) et d'opacité (alpha) 0,5 afin qu'elle ne perturbe pas trop la lecture du graphique. On définit les paramètres concernant les points du graphique (épaisseur du point avez size et l'alpha), puis on précise que l'on trace un graphique en échelle logarithmique 10. De plus on ajoute des titres d'axe mais on enlève les légendes des graphiques (vu que l'on veut un graphique par Phylum).
 
 ```{r}
 # Subset to the remaining phyla
@@ -185,11 +199,17 @@ ggplot(prevdf1, aes(TotalAbundance, Prevalence / nsamples(ps),color=Phylum)) +
   facet_wrap(~Phylum) + theme(legend.position="none")
 ```
 
+On observe que en effet il y a aux alentours de 17-18 points au total entre les divers graphiques qui sont sous le seuil de 5% de prévalence. Nous allons donc choisir de les enlever afin de d'utiliser des données que l'on considère vont Être suffissament fiables. Ce filtrage que l'on est entrain d'effectuer est un filtrage "sans supervision". En effet, depuis le début du tutoriel on travaille avec des séquences que l'on filtre à base de comparaisons à des bases de données; entre elles etc. Mais la on choisi quoi filtrer par rapport à ce qui nous conviens et d'après ce que l'on voit (même si on a filré le score de qualité en faisant un choix, on a basé le choix sur un calcul et des comparaisons faites entre les séquences elles mêmes par rapport à leur technique de séquençage). 
+
+On définit donc la prévalence comme valable à partir du seuil de 5% de présence:
+
 ```{r}
 # Define prevalence threshold as 5% of total samples
 prevalenceThreshold = 0.05 * nsamples(ps)
 prevalenceThreshold
 ```
+
+Ensuite on crée un nouveau objet phyloseq, ps2, dans lequel on stocke toutes les séquences que l'on garde, c'est à dire, les séquences au-dessus du seuil de prévalence (keepTaxa). 
 
 ```{r}
 # Execute prevalence filter, using `prune_taxa()` function
@@ -197,18 +217,31 @@ keepTaxa = rownames(prevdf1)[(prevdf1$Prevalence >= prevalenceThreshold)]
 ps2 = prune_taxa(keepTaxa, ps)
 ```
 
+
+# Arbre phylogénétique ou regroupement des taxons.
+
+Même si il serait plus pratique de créer une agroupation des bactéries par leur fonction, dû à la simplicité, nous allons faire un arbre phylogénétique basé sur la similarité de taxonomie des bactéries des échantillons. Pour ce faire nous devons donner des instructions afin de créer un arbre classant les bactéries en fonction de leur appartenence à un même genre:
+
 ```{r}
 # How many genera would be present after filtering?
 length(get_taxa_unique(ps2, taxonomic.rank = "Genus"))
 ```
+
+Cette dernière commande nous a servi à évaluer la quantité de genres bactériens différents présents dans nos échantillons après tous les tris que l'on a effectué. On en a 49. 
+On crée un objet phyloseq ps3 dans lequel on va "merge" soit fusionner nos résultats jusqu'à un certain niveau taxonomique; ici en l'ocurrence jusqu'au genre bactérien. Ainsi la fonction tax_glom permet de faire cette fusion pour créer les noeuds de notre arbre.
+
 ```{r}
 ps3 = tax_glom(ps2, "Genus", NArm = TRUE)
 ```
+
+L'arbre phylogénetique basé sur la taxonomie n'est pas mal, or il se peut que nos séquences ne soient pas suffissament bonnes et l'assignation taxonomique soit compliquée. Ou bien il se peut qu'on ne dispose pas de ces informations taxonomiques. Ainsi on peut faire un arbre sur une méthode similaire au clustering d'OTUs mais il y a une composante évolutionnaire entre les séquences qui est tenue en compte. En effet on va créer un arbre en se basant sur la distance phylogenetique entre les éléments caractéristiques définissant un groupe taxonomique. Pour faire cela on défini tout d'abord un indice de similiarité au au dessous duquel on ne joins pas deux branchest et au dessus du quel on considère que deux séquences sont suffissament proches. Cet indice ici va être nommé h1. Ensuite on crée un objet phyloseq, ps4, qui va contenir l'union d'éléments basée sur la distance (hauteur) h. 
 
 ```{r}
 h1 = 0.4
 ps4 = tip_glom(ps2, h = h1)
 ```
+
+C'est le moment de tracer notre arbre. Afin de pouvoir comparer nos résultats on va tracer un arbre avec nos données avant d'avoir été traitées pour fusionner en fonction de la taxonomie ou bien en fonction de leur distance; puis un arbre pour la fusion taxonomique et un autre pour la fusion par distance. On décide donner des titres aux arbres pour ne pas les confondre et on indique que la taille de police des titres est 15. Ensuite on crée p2tree avec la fonction plot_tree, cette fonction va tracer l'arbre de l'objet ps2 (données sans traiter) avec la méthode treeonly, cette partie de la fonction indique si l'on veut des annotations sur notre arbre ou pas (points de robustesse). L'option de ladderize permet de reorganiser les noeuds des arbres en fonction de leur profondeur par rapport aux nombre de branches qui partent d'un noeuf et leur profondeur (un noeu où une branche donné issue à un autre noeud puis un autre etc...). Le deuxième arbre est crée à partir de ps3 et donc des données fusionnées par taxonomie et l'arbre trois en fonction de l'hauteur (distance), donc à partir de l'objet ps4.
 
 ```{r}
 multiPlotTitleTextSize = 15
@@ -224,11 +257,20 @@ p4tree = plot_tree(ps4, method = "treeonly",
   theme(plot.title = element_text(size = multiPlotTitleTextSize))
 ```
 
+On utilise ensuite la fonction gridExtra pour tracer les trois arbres sur une même ligne. 
+
 ```{r}
 library(gridExtra)
 # group plots together
 grid.arrange(nrow = 1, p2tree, p3tree, p4tree)
 ```
+
+Avant de fusionner nos données on obtient un arbre qui a beaucoup de branches et qui est pratiquement ilisible. Après fusion de données on constate que l'arbre se basant sur la distance des séquences permet de donner plus de précisions que l'arbre basé sur la taxonomie mais tout en restant plus clair et lisible que celui des données non traitées. 
+
+# Transformation des valeurs d'abondance.
+
+
+
 ```{r}
 plot_abundance = function(physeq,title = "", 
                           Facet = "Order", Color = "Phylum"){
