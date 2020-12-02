@@ -288,7 +288,7 @@ plot_abundance = function(physeq,title = "",
 }
 ```
 
-Cette fonction va, dans un premier temps attribuer à un nouveau objet, p1f, les éléments du phylum Firmicutes de l'objet physeq (extraction des données). Ensuite et grâce à la fonction psmelt noous allons créer un table unique qui mets en relation toutes les informations, concenrant les firmicutes, des différentes tables (OTU; taxa; data.frame). Cela va être attibué à mphyseq. Ensuite on va faire le tri sur mphyseq pour conserver que tout ce qui a une abondance supérieure à 0. Finalement la fonction va permettre la création d'un graphique avec les données de mphyseq. On va définir le caractère esthétique de la chaîne de caractères et la cartographie des points. Nous allons donc tracer des graphiques de distribution de l'abondance en fonction du sexe du rat sur lequel a été effectué l'échantillonnage. Ensuite on introduit des paramètres graphiques, on veut chaque séquence représentée par des points de taille 1 plutôt peu opaques (afin de mieux voir les superpositions par une couleur plus importante) et en plus on rajoute un paramètre position_jitter qui permet d'écarter lègerement les points (sur l'axe x pour nous) afin de mieux voir le positionnement des points. On ajoute de même des données pour créer un graphique en violon (violin plot). Le violin plot permet de déterminer les données qui pourraient être lues grâce à une boîte à moustache mais on rajoute de même de façon visuelle le paramètre de densité aléatoire (la distribution des données). Ici on va tracer le graphique en violon uniquement avec les traits afin de voir la densité de points à chaque niveau mais sans voir les données de la boîte à moustache. On mets pas de filling sur le graphique afin de tout simplement lire les points.
+Cette fonction va, dans un premier temps attribuer à un nouveau objet, p1f, les éléments du phylum Firmicutes de l'objet physeq (extraction des données). Ensuite et grâce à la fonction psmelt noous allons créer un table unique qui mets en relation toutes les informations, concenrant les firmicutes, des différentes tables (OTU; taxa; data.frame). Cela va être attibué à mphyseq. Ensuite on va faire le tri sur mphyseq pour conserver que tout ce qui a une abondance supérieure à 0. Finalement la fonction va permettre la création d'un graphique avec les données de mphyseq. On va définir le caractère esthétique de la chaîne de caractères et la cartographie des points. Nous allons donc tracer des graphiques de distribution de l'abondance en fonction du sexe du rat sur lequel a été effectué l'échantillonnage. Ensuite on introduit des paramètres graphiques, on veut chaque séquence représentée par des points de taille 1 plutôt peu opaques (afin de mieux voir les superpositions par une couleur plus importante) et en plus on rajoute un paramètre position_jitter qui permet d'écarter lègerement les points (sur l'axe x pour nous) afin de mieux voir le positionnement des points. On ajoute de même des données pour créer un graphique en violon (violin plot). Le violin plot permet de déterminer les données qui pourraient être lues grâce à une boîte à moustache mais on rajoute de même de façon visuelle le paramètre de densité aléatoire (la distribution des données). Ici on va tracer le graphique en violon uniquement avec les traits afin de voir la densité de points à chaque niveau mais sans voir les données de la boîte à moustache. On mets pas de filling sur le graphique afin de tout simplement lire les points. Finalement on détermine l'utilisation d'une échelle logarithmique et avec facet_wrap on donne ordre d'utiliser des graphiques montrant la facette choisie, c'est à dire, celle que l'on a défini en début de fonction: l'ordre au sein des phylums (et dans ce cas et par rapport au code que l'on a fait, on demande les graphiques des différents ordres retrouvés au sein des Firmicutes).
 
 Une fois que l'on a crée cette fonction qui va nous permettre de tracer des graphiques, on choisi les données à utiliser. On va donc transformer nos données afin de traiter la fréquence des échantillons. Pour ce faire il faut utiliser la fonction transform_sample_counts.
 
@@ -328,15 +328,22 @@ Après ajout de packages, et en ayant fini les tris des séquences et leur trait
 
 ## Just kidding: il reste une étape de preparation JA. 
 
+On crée un petit graphique (histogramme) en prennant uniquement les âges des souris sur lesquelles on a échantillonné. 
 
 ```{r}
 qplot(sample_data(ps)$age, geom = "histogram",binwidth=20) + xlab("age")
 ```
+On observe qu'il y a trois groupes d'âge. Il serait donc intéressant de lier les analyses et données à l'âge plutôt qu'à l'échantillon. 
+On doit tout de même vérifier si les données sont comparables, soit si elles sont normalisées:
 
 ```{r}
 qplot(log10(rowSums(otu_table(ps))),binwidth=0.2) +
   xlab("Logged counts-per-sample")
 ```
+
+Il semble qu'une normalisation par la fonction log(x+1) est suffissante. 
+Nous allons donc créer un code permettant de lier l'âge des souris aux analyses, ensuite on va faire une PCoA afin d'avoir un premier apperçu de nos données. 
+On commence par decomposer nos données à partir de l'âge grâce à la fonction cut. On coupe au niveau des jours 100; 200 et 400. Ainsi on va créer des niveaux au sein de nos données en les classant sur ces intervalles et en les triant en "Young100"; "Mid100to200" et "Old200". On crée aussi un lien avec la parenté entre les souris utilisées pour l'étude. Ensuite on normalise les données grâce à transform_sample_counts, avec la fonction log(1+x) et on attribue ces valeurs normalisées à pslog. Ensuitre on crée une ordination de ces données normalisées, la PCoA (MDS) utilisant l'indice de distances wunifrac. Cette ordination est stockée en out.wuf.log, les coefficients permettant de trouver les vecteurs (Eigenvalue des eigenvectors)est assigné à evals. Finalement on trace l'ordination et on assigne aux données des couleurs en fonction de l'âge. 
 
 ```{r}
 sample_data(ps)$age_binned <- cut(sample_data(ps)$age,
@@ -350,27 +357,39 @@ plot_ordination(pslog, out.wuf.log, color = "age_binned") +
   labs(col = "Binned Age") +
   coord_fixed(sqrt(evals[2] / evals[1]))
 ```
+
+On observe quelques données qui peuvent induire à erreur (plus écartées du reste et qui peuvent avoir encore des problèmes). On analyse les données de ces points en les comparant.
+
 ```{r}
   rel_abund <- t(apply(otu_table(ps), 1, function(x) x / sum(x)))
 qplot(rel_abund[, 12], geom = "histogram",binwidth=0.05) +
   xlab("Relative abundance")
 ```
-After documenting the outliers, we are going to compute ordinations with these outliers removed and more carefully study the output
+
+## Ordinations.
+
+On élimine les points qui sont plus écartés sur la PCoA précendante. De même on décide d'enlever les échantillons avec moins de 1000 reads. 
+
+
 ```{r}
 outliers <- c("F5D165", "F6D165", "M3D175", "M4D175", "M5D175", "M6D175")
 ps <- prune_samples(!(sample_names(ps) %in% outliers), ps)
-```
-
-```{r}
+#On cherche quelles sont les rangées ayant ces échantillons avec moins de 1000 reads
 which(!rowSums(otu_table(ps)) > 1000)
 ```
+
+On enlève les échantillons en question et on re-fait une normalisation (plutôt on reajuste) pour pouvoir comparer les doonées. 
 
 ```{r}
 ps <- prune_samples(rowSums(otu_table(ps)) > 1000, ps)
 pslog <- transform_sample_counts(ps, function(x) log(1 + x))
 ```
 
-We’ll first perform a PCoA using Bray-Curtis dissimilarity.
+
+### PCoA
+
+C'est parti pour les analyses. On crée l'ordination pour faire à nouveau une PCoA cette fois en utilisant un indice de Bray-Curtis. Cette fois ci on va representer graphiquement les distances entre nos échantillons en se basant d'une part sur l'âge (grâce aux couleurs) et d'autre part grâce au lien de parenté (grâce à la forme des points sur le graphique). Le lien de parenté se fait en fonction de la "cage" de laquelle proviens la souris. Afin de pas nous perdre, on ajoute une légende à la PCoA avec le code couleur et le code de formes. 
+
 ```{r}
 out.pcoa.log <- ordinate(pslog,  method = "MDS", distance = "bray")
 evals <- out.pcoa.log$values[,1]
@@ -380,7 +399,12 @@ plot_ordination(pslog, out.pcoa.log, color = "age_binned",
   coord_fixed(sqrt(evals[2] / evals[1]))
 ```
 
-Next we look at double principal coordinates analysis (DPCoA) (Pavoine, Dufour, and Chessel 2004; Purdom 2010; Fukuyama et al. 2012), which is a phylogenetic ordination method and that provides a biplot representation of both samples and taxonomic categories. We see again that the second axis corresponds to young vs. old mice
+On constate qu'en effet on peut voir deux groupes marqués dependant de l'âge. Peu importe l'origine des souris (ou le sexe, même si on a pas classé en fonction du sexe du fait de voir deux groupements clairs en fonction de l'âge on détermine qu'il n'affecte pas la différence) l'âge joue un facteur clé dans la similarité des échantillons. 
+
+### Double PCoA (DPCoA).
+
+On souhaite tracer maintenant une ordination nous permettant de placer les échantillons entre eux en se basant sur la similarité/dissimilarité mais aussi en fonction des catégories taxonomiques retrouvées dans les échantillons. On évalue donc en fonction des deux paramètres précedents et on ajoute les comparaisons taxonomiques. 
+
 ```{r}
 out.dpcoa.log <- ordinate(pslog, method = "DPCoA")
 evals <- out.dpcoa.log$eig
@@ -389,12 +413,22 @@ plot_ordination(pslog, out.dpcoa.log, color = "age_binned", label= "SampleID",
   labs(col = "Binned Age", shape = "Litter")+
   coord_fixed(sqrt(evals[2] / evals[1]))
 ```
+
+On constate à nouveau des différences marquées qui sont basées sur l'âge des souris. (Groupe vert et groupe rouge).
+La dissimilarité est quand même supérieure au long de l'axe X (75,1%). Ce changement de forme et élongation par rapport à l'axe X est introduit par la taxonomie du fait que c'est le paramètre différent ou nouveau introduit par rapport à la PCoA précédente. On fait une ordination permettant d'évaluer la ressemblance taxonomique des échantillons.
+
 ```{r}
 plot_ordination(pslog, out.dpcoa.log, type = "species", color = "Phylum") +
   coord_fixed(sqrt(evals[2] / evals[1]))
 ```
 
-Finally, we can look at the results of PCoA with weighted Unifrac. As before, we find that the second axis is associated with an age effect, which is fairly similar to DPCoA. This is not surprising, because both are phylogenetic ordination methods taking abundance into account. However, when we compare biplots, we see that the DPCoA gave a much cleaner interpretation of the second axis, compared to weighted Unifrac.
+On constate en effet que la taxonomie joue un rôle important dans la dissimilarité des échantillons. On retrouve 3 groupes principaux dépendant de la composition prédominante en Bacteriodetes (en haut à droite), très dissimilaire aux Firmicutes (en haut à gauche) qui a une lègere ressemblance aux Fusobacteria mais qui eux cependant sont plus dissimilaires par rapport à l'axe 2. 
+
+### Weighted Unifrac
+
+Jusqu'ici nous avons fait des analyses de "unweighted" (données qualitatives) unifrac, c'est à dire en se basant notamment sur la présence ou absence des caractères étudiés (les faibles abondances peuvent être mieux étudiées sans induire à erreur). Maintenant on peut procéder à une étude de weighted unifrac (données quantitatives) qui est plutôt sensible à l'étude par rapport aux abondances des caractères étudiés, on trace une nouvelle PCoA.
+
+
 ```{r}
 out.wuf.log <- ordinate(pslog, method = "PCoA", distance ="wunifrac")
 evals <- out.wuf.log$values$Eigenvalues
@@ -404,12 +438,18 @@ plot_ordination(pslog, out.wuf.log, color = "age_binned",
   labs(col = "Binned Age", shape = "Litter")
 ```
 
-The PCoA maps are not presented as square representations as is often the case in standard PCoA and PCA plots in the literature.The reason for this is that as we are trying to represent the distances between samples as faithfully as possible; we have to take into account that the second eigenvalue is always smaller than the first, sometimes considerably so, thus we normalize the axis norm ratios to the relevant eigenvalue ratios. This ensures that the variability represented in the plots is done so faithfully.
+Le résultat est très similaire à celui de la DPCoA, ce qui s'explique du fait que tous les deux sont des ordinations phylogénetiques tenant en compte l'abondance. Cependant la DPCoA permettait une analyse plus claire de la dissimilarité de l'axe1. 
+
+### PCA par rangs 
+
+Afin de tracer une PCA qui ne se soit pas vue affectée par la normalisation de façon négative (observation atypiques possibles), on va créer des rangs. Ces rangs vont servir par la suite à tracer la PCA qui va nous permettre de travailler avec des rangs de variables au lieu des valeurs observées.Ainsi on crée les rangs en fonction des abondances au sein des microbiomes. 
 
 ```{r}
 abund <- otu_table(pslog)
 abund_ranks <- t(apply(abund, 1, rank))
 ```
+
+
 
 ```{r}
 abund_ranks <- abund_ranks - 329
