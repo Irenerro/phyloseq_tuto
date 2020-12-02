@@ -447,14 +447,13 @@ Afin de tracer une PCA qui ne se soit pas vue affectée par la normalisation de 
 ```{r}
 abund <- otu_table(pslog)
 abund_ranks <- t(apply(abund, 1, rank))
-```
 
-
-
-```{r}
 abund_ranks <- abund_ranks - 329
 abund_ranks[abund_ranks < 1] <- 1
 ```
+
+On crée une matrice abund_df dans laquelle on va retrouver l'union de abund et à gauche une colonne avec les valeurs de abund_ranks. On attribue aux noms des colonnes de cette matrice, en ordre, Sample pour les échantillons; seq pour la séquence de l'échantillon; abun pour l'abondance tirée des OTU; et rank pour le rang attribué à l'abondance.
+Ensuite on prépare un graphique nous permettant d'évaluer l'assignation des rangs en fonction de l'abondance et qu'il n'y ait pas de disparité à cause des points moins abondants (regroupés en 1 pour éviter l'effet horseshoe). On crée un objet sample_ix qui va permettre de récuperer de façon aléatoire 8 échantillons dès la première ligne jusqu'à la dernière ligne où il y a une abondance assignée. Ensuite on trace le graphique en fonction de l'abondance et en filtrant nos échantillons de abund_df par ordre croissant d'abondance. Ensuite on donne les instructions ésthetiques du graphique. Et on met des étiquettes pour différentier les échantillons (les couleurs des points vont varier en fonction de l'échantillon). La graphique va être tracée de façon a observer les variations de rang en fonction de l'abondance sur ces 8 échantillons aléatoires.
 
 ```{r}
 library(dplyr)
@@ -475,6 +474,8 @@ ggplot(abund_df %>%
   labs(x = "Abundance", y = "Thresholded rank") +
   scale_color_brewer(palette = "Set2")
 ```
+
+On est prêts pour tracer la PCA.
 
 ```{r}
 library(ade4)
