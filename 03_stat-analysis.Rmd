@@ -125,11 +125,11 @@ ps
 
 Dans cette partie nous allons filtrer nos données de travail. Cependant, contrairement au filtrage fait sur la partie de DADA2 ici nous allons filtrer grâce, d'une part de la taxonomie, et d'autre part en fonction de la prévalence des taxons dans les échantillons. 
 
-## Filtage taxonomique
+## Filtage taxonomique.
 
 Afin de pouvoir faire un filtrage et ne pas tenir en compte les espèces moins abondantes qui peuvent être issues d'erreurs de séquençage on commence par analyser les rangs puis ensuite on choisi un niveau auquel on veut étudier pour filtrer nos échantillons.
 
-### Show available ranks in the dataset
+### Rangs dans le jeu de données.
 ```{r}
 rank_names(ps)
 ```
@@ -269,7 +269,7 @@ Avant de fusionner nos données on obtient un arbre qui a beaucoup de branches e
 
 # Transformation des valeurs d'abondance (abondance vs abondance relative).
 
-Nous allons sut cette partie, créer tout d'abord une fonction: plot_abondance. Cette fonction on va la définir à partir des variables trouvables sur l'objet physeq, et on va assimiler à repartir (facet) les graphiques en fonction de l'Ordre. 
+Nous allons sur cette partie, créer tout d'abord une fonction: plot_abondance. Cette fonction on va la définir à partir des variables trouvables sur l'objet physeq, et on va assimiler à repartir (facet) les graphiques en fonction de l'Ordre au sein des Firmicutes (on choisi les firmicutes du fait que c'est le phyllum contenant plus de caractéristiques cf. tax_table de la partie Rangs dans le jeu de données.)
 
 ```{r}
 plot_abundance = function(physeq,title = "", 
@@ -288,7 +288,7 @@ plot_abundance = function(physeq,title = "",
 }
 ```
 
-Cette fonction va, dans un premier temps attribuer à un nouveau objet, p1f, les éléments du phylum Firmicutes de l'objet physeq (extraction des données). Ensuite et grâce à la fonction psmelt noous allons créer un table unique qui mets en relation toutes les informations, concenrant les firmicutes, des différentes tables (OTU; taxa; data.frame). Cela va être attibué à mphyseq. Ensuite on va faire le tri sur mphyseq pour conserver que tout ce qui a une abondance supérieure à 0. Finalement la fonction va permettre la création d'un graphique avec les données de mphyseq. On va définir le caractère esthétique de la chaîne de caractères et la cartographie des points. Nous allons donc tracer des graphiques de distribution de l'abondance en fonction du sexe du rat sur lequel a été effectué l'échantillonnage. Ensuite on introduit des paramètres graphiques, on veut chaque séquence représentée par des points de taille 1 plutôt peu opaques (afin de mieux voir les superpositions par une couleur plus importante) et en plus on rajoute un paramètre position_jitter qui permet d'écarter lègerement les points (sur l'axe x pour nous) afin de mieux voir le positionnement des points. On ajoute de même des données pour créer un graphique en violon (violin plot). Le violin plot permet de déterminer les données qui pourraient être lues grâce à une boîte à moustache mais on rajoute de même de façon visuelle le paramètre densité. Ici on va tracer le graphique en violon uniquement avec les traits afin de voir la densité de points à chaque niveau mais sans voir les données de la boîte à moustache. On mets pas de filling sur le graphique afin de tout simplement lire les points.
+Cette fonction va, dans un premier temps attribuer à un nouveau objet, p1f, les éléments du phylum Firmicutes de l'objet physeq (extraction des données). Ensuite et grâce à la fonction psmelt noous allons créer un table unique qui mets en relation toutes les informations, concenrant les firmicutes, des différentes tables (OTU; taxa; data.frame). Cela va être attibué à mphyseq. Ensuite on va faire le tri sur mphyseq pour conserver que tout ce qui a une abondance supérieure à 0. Finalement la fonction va permettre la création d'un graphique avec les données de mphyseq. On va définir le caractère esthétique de la chaîne de caractères et la cartographie des points. Nous allons donc tracer des graphiques de distribution de l'abondance en fonction du sexe du rat sur lequel a été effectué l'échantillonnage. Ensuite on introduit des paramètres graphiques, on veut chaque séquence représentée par des points de taille 1 plutôt peu opaques (afin de mieux voir les superpositions par une couleur plus importante) et en plus on rajoute un paramètre position_jitter qui permet d'écarter lègerement les points (sur l'axe x pour nous) afin de mieux voir le positionnement des points. On ajoute de même des données pour créer un graphique en violon (violin plot). Le violin plot permet de déterminer les données qui pourraient être lues grâce à une boîte à moustache mais on rajoute de même de façon visuelle le paramètre de densité aléatoire (la distribution des données). Ici on va tracer le graphique en violon uniquement avec les traits afin de voir la densité de points à chaque niveau mais sans voir les données de la boîte à moustache. On mets pas de filling sur le graphique afin de tout simplement lire les points.
 
 Une fois que l'on a crée cette fonction qui va nous permettre de tracer des graphiques, on choisi les données à utiliser. On va donc transformer nos données afin de traiter la fréquence des échantillons. Pour ce faire il faut utiliser la fonction transform_sample_counts.
 
@@ -308,16 +308,26 @@ grid.arrange(nrow = 1,  plotBefore, plotAfter)
 #sur le code du tutoriel on mets nrow=2 mais ici on change par 1 afin d'avoir quelque chose de plus esthetique et lisible
 ```
 
-Sur le côte gauche on observe donc les abondances des séquences des firmicutes . Sur les graphiques de droite on observe les données traitées qui nous donnent les abondances relatives. En effet en ps3 on observe quelle quantité de de séquences de chaque groupe il y a au sein de l'ensemble des échantillons. Sur ps3ra en calculant la fréquence, on calcule l'abondance relative.
+Sur le côte gauche on observe donc les abondances des séquences des firmicutes . Sur les graphiques de droite on observe les données traitées qui nous donnent les abondances relatives. En effet en ps3 on observe quelle quantité de de séquences de chaque groupe il y a au sein de l'ensemble des échantillons. Sur ps3ra en calculant la fréquence, on calcule l'abondance relative. 
+Afin d'interpreter de violin plot, on doit tenir en compte la symétrie de la figure. Si on trace un ligne juste au centre de symétrie de la figure et que l'on effectue une rotation de la figure prenant ce centre comme axe x on observe la distribution au sein des différents ordres et la prédominance (c'est la frome qui aurait la distribution si on aurait utilisé par exemple un histogramme avec les familles au sein de cet ordre).
 
-# Sous-ensembles:Le retour du roi.
+## Sous-ensembles:Le retour du roi.
 
-Sur cette partie nous allons encore une fois travailler sur des sous-ensembles de données pour les évaluer. Plus précisement on va faire une analyse des sous-ensembles taxonomiques trouvés dans les firmicutes.
+Sur cette partie nous allons encore une fois travailler sur des sous-ensembles de données pour les évaluer. Plus précisement on va faire une analyse des sous-ensembles taxonomiques trouvés dans les firmicutes.Et encore plus précisement on va se centrer sur l'ordre des Lactobacillales. Pourquoi? En fait si on observe les violin plot de la partie précedente on observe que la distribution des Lactobacillales (et celle des Erisipelotriarchales) est pas unimodale mais bimodale. C'est à dire, on a deux bosses donc on a deux genres qui prédominent.Lesquels? 
+On va se servir de la fonction plot_abundance que l'on a défini sur la partie précedente et on va tracer les représentations graphiques des genres contenus chez les Lactobacillales avec l'abondance en fonction du sexe. On crée un objet psOrd auquel on assigne les éléments de l'ordre des Lactobacillales qui sont stockées dans l'objet ps3ra (donc on travaille uniquement avec l'abondance relative). Ensuite on trace le graphique mais cette fois en changeant facet pour demander le "Genus" ou genre. 
 
 ```{r}
 psOrd = subset_taxa(ps3ra, Order == "Lactobacillales")
 plot_abundance(psOrd, Facet = "Genus", Color = NULL)
 ```
+
+On constate que en effet la distribution bimodale était due à deux genres au sein des Lactobacillales, les Lactobacillus et les Streptocoques. On remarque tout de même que les Lactobacillus sont plus abondants que les Streptocoques. De façon résumée sur cette étape ce que l'on a fait c'est décomposer le graphique des Lactobacillales de la partie précedente en deux en fonction du genre.
+Après ajout de packages, et en ayant fini les tris des séquences et leur traitement... On passe à l'analyse statistique.
+
+# Analyse statistique avec R.
+
+## Just kidding: il reste une étape de preparation JA. 
+
 
 ```{r}
 qplot(sample_data(ps)$age, geom = "histogram",binwidth=20) + xlab("age")
