@@ -267,9 +267,9 @@ grid.arrange(nrow = 1, p2tree, p3tree, p4tree)
 
 Avant de fusionner nos données on obtient un arbre qui a beaucoup de branches et qui est pratiquement ilisible. Après fusion de données on constate que l'arbre se basant sur la distance des séquences permet de donner plus de précisions que l'arbre basé sur la taxonomie mais tout en restant plus clair et lisible que celui des données non traitées. 
 
-# Transformation des valeurs d'abondance.
+# Transformation des valeurs d'abondance (abondance vs abondance relative).
 
-
+Nous allons sut cette partie, créer tout d'abord une fonction: plot_abondance. Cette fonction on va la définir à partir des variables trouvables sur l'objet physeq, et on va assimiler à repartir (facet) les graphiques en fonction de l'Ordre. 
 
 ```{r}
 plot_abundance = function(physeq,title = "", 
@@ -288,10 +288,17 @@ plot_abundance = function(physeq,title = "",
 }
 ```
 
+Cette fonction va, dans un premier temps attribuer à un nouveau objet, p1f, les éléments du phylum Firmicutes de l'objet physeq (extraction des données). Ensuite et grâce à la fonction psmelt noous allons créer un table unique qui mets en relation toutes les informations, concenrant les firmicutes, des différentes tables (OTU; taxa; data.frame). Cela va être attibué à mphyseq. Ensuite on va faire le tri sur mphyseq pour conserver que tout ce qui a une abondance supérieure à 0. Finalement la fonction va permettre la création d'un graphique avec les données de mphyseq. On va définir le caractère esthétique de la chaîne de caractères et la cartographie des points. Nous allons donc tracer des graphiques de distribution de l'abondance en fonction du sexe du rat sur lequel a été effectué l'échantillonnage. Ensuite on introduit des paramètres graphiques, on veut chaque séquence représentée par des points de taille 1 plutôt peu opaques (afin de mieux voir les superpositions par une couleur plus importante) et en plus on rajoute un paramètre position_jitter qui permet d'écarter lègerement les points (sur l'axe x pour nous) afin de mieux voir le positionnement des points. On ajoute de même des données pour créer un graphique en violon (violin plot). Le violin plot permet de déterminer les données qui pourraient être lues grâce à une boîte à moustache mais on rajoute de même de façon visuelle le paramètre densité. Ici on va tracer le graphique en violon uniquement avec les traits afin de voir la densité de points à chaque niveau mais sans voir les données de la boîte à moustache. On mets pas de filling sur le graphique afin de tout simplement lire les points.
+
+Une fois que l'on a crée cette fonction qui va nous permettre de tracer des graphiques, on choisi les données à utiliser. On va donc transformer nos données afin de traiter la fréquence des échantillons. Pour ce faire il faut utiliser la fonction transform_sample_counts.
+
 ```{r}
 # Transform to relative abundance. Save as new object.
 ps3ra = transform_sample_counts(ps3, function(x){x / sum(x)})
 ```
+
+Nous avons donc indiqué de transformer les données de l'objet ps3 avec une fonction permettant de calculer la fréquence de chaque séquence (x divisé par la somme des x). Ces fréquences sont stockées sur ps3ra. On trace des graphiques avant le traitement des données (à partir de ps3) et après traitement (à partir de ps3ra). 
+
 
 ```{r}
 plotBefore = plot_abundance(ps3,"")
@@ -300,6 +307,13 @@ plotAfter = plot_abundance(ps3ra,"")
 grid.arrange(nrow = 1,  plotBefore, plotAfter)
 #sur le code du tutoriel on mets nrow=2 mais ici on change par 1 afin d'avoir quelque chose de plus esthetique et lisible
 ```
+
+Sur le côte gauche on observe donc les abondances des séquences des firmicutes . Sur les graphiques de droite on observe les données traitées qui nous donnent les abondances relatives. En effet en ps3 on observe quelle quantité de de séquences de chaque groupe il y a au sein de l'ensemble des échantillons. Sur ps3ra en calculant la fréquence, on calcule l'abondance relative.
+
+# Sous-ensembles:Le retour du roi.
+
+Sur cette partie nous allons encore une fois travailler sur des sous-ensembles de données pour les évaluer. Plus précisement on va faire une analyse des sous-ensembles taxonomiques trouvés dans les firmicutes.
+
 ```{r}
 psOrd = subset_taxa(ps3ra, Order == "Lactobacillales")
 plot_abundance(psOrd, Facet = "Genus", Color = NULL)
