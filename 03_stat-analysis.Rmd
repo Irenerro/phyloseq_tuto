@@ -1,11 +1,18 @@
 ---
 title: "03_stat-analysis"
-author: Irene Romero Rodríguez
-  output:
+author: "Irene Romero Rodríguez"
+output:
   github_document:
     toc: TRUE
     toc_depth: 2
 ---
+
+```{r}
+library(rmarkdown)
+library(knitr)
+load("~/phyloseq_tuto/envmt_dada2.RData")
+```
+
 
 # Introduction: Packages
 
@@ -476,6 +483,7 @@ ggplot(abund_df %>%
 ```
 
 On est prêts pour tracer la PCA.
+Pour ce faire, grâce à la fonction dudi.pca on crée un objet PCA à partir des données stockées sur abund_ranks. On indique que l'on veut conserver 3 axes sur cette PCA (nf). On crée une data frame dans laquelle on va avoir les coordonnées sur les trois axes de chaque échantillon. On rajoute sur cette table l'ID de l'échantillon à partir des rangées de la table d'abund_ranks. Ensuite on crée une table contenant les scores (et donc coordonnées aussi) en fonction des colonnes, on tire dans ce cas ci les séquences (colonnes) de la table abund_ranks. Puis on crée une data frame à partir de la table taxonomique de l'objet phyloseq. On définit grâce aux row names (les séquences) une colonne contenant ces séquences. Ensuite on défini un objet main_orders dans lequel on va englober les Clostridiales; Bacteriodales; Lactobacillales et les Coriobacteriales qui sont les ordres ayant des abondances plus importantes. Cet objet permet par la suite d'assigner au reste des ordres le mot "others", cela permet à son tour de classer les données de tax entre les ordres d'importance et les "autres" moins abondants. Ensuite on assigne à la table row_score les données de ps_log à gauche des données que l'on avait déjà assigné sur row_score. Et on fait de même avec col_scores mais en rajoutant la table tax. 
 
 ```{r}
 library(ade4)
@@ -496,6 +504,12 @@ row_scores <- row_scores %>%
   left_join(sample_data(pslog))
 col_scores <- col_scores %>%
   left_join(tax)
+```
+
+On transforme les fréquences en pourcentages de proportionnalité et on donne les instructions pour construire la PCA de façon graphique. On utilise des triangles pour analyser les points par rapport aux données de la table row_scores et des points pour col_scores. On trace trois PCA différentes en fonction du groupe d'âge pour voir d'autres paramètres jouant sur les échantillons; on utilise des couleurs en fonction de l'ordre (pour l'analyse des colonnes). 
+Ainsi grâce aux colonnes on étudie la similarité/dissimilarité des échantillons à partir des groupements taxonomiques et leur séquence. Alors que à travers la table row (tangées) on étudie la dissimilarité à partir des facteurs d'échantillonnage (sexe de la souris; parenté entre les souris; échantillon duquel est issue la séquence...).
+
+```{r}
 evals_prop <- 100 * (ranks_pca$eig / sum(ranks_pca$eig))
 ggplot() +
   geom_point(data = row_scores, aes(x = li.Axis1, y = li.Axis2), shape = 2) +
@@ -509,6 +523,14 @@ ggplot() +
   coord_fixed(sqrt(ranks_pca$eig[2] / ranks_pca$eig[1])) +
   theme(panel.border = element_rect(color = "#787878", fill = alpha("white", 0)))
 ```
+
+
+Sur les graphiques obtenus on voit des groupements de triangles abondants et pas une très grande différence ou distribution de ces points. Cependant quand on étudie les échantillons à travers les points (circulaires et qui correspondent donc aux scores obtenus pour l'étude de similarité/dissimilarité à travers les études de séquence et taxonomique) on voit une plus grande distribution des points. De la même façon on observe certains groupements dépendant de l'ordre taxonomique (les bacteroidales par exemple). Cette conclusion et analyse est semblable à celui que l'on a déjà fait précédamment. Cela permet de confirmer (ou en tout cas renforcer) notre théorie du premier analyse. 
+
+### Analyse de correspondance canonique (CCA).
+
+L'analyse de correspondance canonique est une autre méthode d'ordination. Cette méthode permet d'évaluer encore plus de facteurs pouvant affecter à la similarité/dissimilarité des échantillons. Ainsi ici on va pouvoir placer graphiquement les échantillons en contion de l'âge et de leur littière mais aussi par rapport aux données stoquées sur pslog (donc OTUs). On va créer une CCA par littière, de plus afin de comparer les échantillons on va le faire en fonction de la prédominance des OTUs et donc des ordres, mais on va aussi utiliser les données de "site", ce sont des données de l'environnement des souris dans le laboratoire qui ont été merged puis auxquelles on a assigné des scores de dissimilarité. Ainsi on peut comparer la différence entre les échantillons une fois de plus par sa composition en niveau de séquences (points), mais aussi par rapport aux informations liées à l'environnement (triangles). 
+
 ```{r}
 ps_ccpna <- ordinate(pslog, "CCA", formula = pslog ~ age_binned + family_relationship)
 library(ggrepel)
@@ -538,6 +560,10 @@ ggplot() +
   theme(panel.border = element_rect(color = "#787878", fill = alpha("white", 0)))
 ```
 
+# Supervised learning
+
+Sur cette partie nous allons évaluer la capacité de R à faire des modèles statistiques en se basant sur des choses connues. Ainsi et en vue de la différence de microbiome des souris en fonction de l'âge nous allons créer un programme permettant de déterminer l'âge d'une sourtis en fonction de son microbiome. Ainsi on crée une variable TrainingMice sur laquelle on stocke des informations de 8 échantillons aléatoires. Sur un objet inTraining on assigne l'identité de ces souris. A partir de la matrice permettant de mettre en relation l'âde aux OTU, on crée un objet pour les souris inTraining et une autre pour les souris à tester (les 4 souris non échantillonnées). On crée finalement un objet qui "apprend" des données de training, l'objet plsFit, à partir de la fonction train. Finalement on utilise la fonction predict, à partir des données plsFit, sur les données de testing pour predire l'âge et on imprime la table permettant d'avoir les résultats.
+
 ```{r}
 library(caret)
 library(lattice)
@@ -554,6 +580,8 @@ plsClasses <- predict(plsFit, newdata = testing)
 table(plsClasses, testing$age)
 ```
 
+Pour tester, on va grâce à une librarie randomForest, créer des microbiomes aléatoires (c'est une méthode différente de PLS). Grâce à ces microbiomes aléatoires on va faire à nouveau un rfFit et un rfClasses(les résultats des tests) et comparer les résultats.
+
 ```{r}
 library(randomForest)
 library(dplyr)
@@ -565,6 +593,8 @@ rfFit <- train(age ~ ., data = training, method = "rf",
 rfClasses <- predict(rfFit, newdata = testing)
 table(rfClasses, testing$age)
 ```
+
+Pour comparer les résultats on trace des graphiques avec deux types de données ou points (biplot) et on compare les résultats trouvés en fonction des rangs d'âge. Nous avons déjà expliqué pas mal de fois comment créer un graphique donc on ne va pas repéter à nouveau toutes les lignes de code. Mais ici on se centre sur le fait d'utiliser et différentier à partir des scores et des loadings (ce qui a été donnée et stoqué comme info et ce qui a été retrouvé). 
 
 ```{r}
 library(vegan)
@@ -595,6 +625,11 @@ ggplot() +
   facet_grid( ~ age2) +
   theme(panel.border = element_rect(color = "#787878", fill = alpha("white", 0)))
 ```
+
+Ce type de représentation graphique permet de mieux visualiser, en écartant les échantillons, les variables ayant un impact sur la discrimination de classes. 
+
+Ensuite on trace un graphique permettant de voir ce que l'on obtient à l'issue de la fôret aléatoire. Ce graphique est contruit en joignant les points (diminuant la distance) en fonction de la fréquence d'apparition de ces échantillons en fonction de la parition (âge). Ainsi on voit deux groupes clairs et distincts qui sont différentiés par l'âge. 
+
 ```{r}
 rf_prox <- cmdscale(1 - rfFit$finalModel$proximity) %>%
   data.frame(sample_data(pslog)[inTrain, ])
@@ -607,15 +642,28 @@ ggplot(rf_prox) +
   labs(col = "Binned Age", x = "Axis1", y = "Axis2")
 ``` 
 
+Finalement et grâce au modèle aléatoire on cherche quelle bactérie permet vraiment à l'algorithme de déterminer dans quel groupe d'âge classer un échantillon. Ainsi on crée un vecteur qui permet de déterminer la famille et genre de la bactérie ayant le plus d'importance dans l'analyse. 
+
 ```{r}
 as.vector(tax_table(ps)[which.max(importance(rfFit$finalModel)), c("Family", "Genus")])
+```
 
+C'est la famille des Lachnospiraceae et le genre Roseburia.
+On trace un histogramme permettant de voir l'abondance de ces bactéries discriminantes pour voir si il y a d'autres groupes dans lesquels on le nombre de fois par échantillon, par groupe d'âge en fonction de l'abondance. 
+
+```{r}
 impOtu <- as.vector(otu_table(pslog)[,which.max(importance(rfFit$finalModel))])
 maxImpDF <- data.frame(sample_data(pslog), abund = impOtu)
 ggplot(maxImpDF) +   geom_histogram(aes(x = abund)) +
   facet_grid(age2 ~ .) +
   labs(x = "Abundance of discriminative bacteria", y = "Number of samples")
 ```
+
+On constate que les seules bactéries discriminantes sont les Lachnospiraceae Roseburia.
+
+# Analyses Graphiques.
+
+En plus des analyses déjà effectuées, grâce à R on peut tracer des graphiques dans lesquels on peut établir des connexions en se basant sur la dissimilarité des échantillons. Ces graphiques on besoin de formes ou ajouts géometriques, et c'est grâce au package ggnetwork que l'on peut créer ces liens comme des coudes ou des noeuds afin de mieux représenter les liaisons. On installe et charge plusieurs packages qui vont nous permettre d'accomplir ces fonctions.
 
 ```{r}
 library("phyloseqGraphTest")
@@ -632,6 +680,11 @@ library(S4Vectors)
 library(BiocGenerics)
 library(stats)
 library(base)
+```
+
+Nous allons travailler ici sur les liaisons concernant les souris, et la dissimilarité/similarité entre elles compte tenu de leur échantillon et de leur littière. Nous allons commencer par créer un graphique en réseau à l'aide de la fonction make_network du package ggnetwork. On crée ce réseau à partir des données de ps et en acceptant un seuil d'indice de Jacquard de 0,35. Ensuite on extrait les données stoquées dans la table de données de ps et on les utilise pour définir comment joindre les divers points, en fonction de la littière de porvenance ainsi que de l'échantillon duquel proviens chaque point. Les nodes sont ainsi définis par les formes et couleurs et les lignes liant les nodes (bordures ou "edges") sont tracées en gris foncé. 
+
+```{r}
 net <- make_network(ps, max.dist=0.35)
 sampledata <- data.frame(sample_data(ps))
 V(net)$id <- sampledata[names(V(net)), "host_subject_id"]
@@ -646,10 +699,16 @@ ggplot(net_graph, aes(x = x, y = y, xend = xend, yend = yend), layout = "fruchte
         legend.key.height = unit(0.5,"line")) +
   guides(col = guide_legend(override.aes = list(size = .5)))
 ```
-#Graph-based two-sample tests
-##Minimum Spanning Tree (MST)
 
-Jaccard dissimilarity
+Ce graphique nous permet voir à travers le réseau on voit que les points de la même couleur ont une tendance à être réliés entre eux, de la même façon les points appartenant à la littière 1 sont liés majeurement entre eux et ceux de la littière deux entre eux. On voit donc deux possibles façons de regroupement. On voit aussi et notamment un lien entre la couleur et la forme, indiquant que tous les échantillons d'un type provienent de la même littière. 
+
+## Graphiques comparant deux tests
+
+Sur ces graphiques on va chercher à connecter les diverses souris en effectuant des itérations à chaque fois pour s'assurer d'être entrain de tracer le plus court chemin, et le meilleur chemin pour connecter les souris plus similaires entre elles.
+
+### Minimum Spanning Tree (MST)
+
+Sur cette méthode on utilise l'indice de Jaccard afin de situer les souris les unes par rapport aux autres. Ensuite l'arbre est rtacé de façon à cumuler le moins de différence possible en additionnant les indices.
 
 ```{r}
 gt <- graph_perm_test(ps, "family_relationship", grouping = "host_subject_id",
@@ -661,7 +720,12 @@ plotNet1=plot_test_network(gt) + theme(legend.text = element_text(size = 8),
 plotPerm1=plot_permutations(gt)
 grid.arrange(ncol = 2,  plotNet1, plotPerm1)
 ```
-##Nearest neighbors
+
+Grâce à ce graphique et notamment à sa contruction on peut créer un graphique de distribution des permutations en fonction du nombre d'angles purs qui permettent de créer l'arbre. 
+
+## Neighbors joining
+
+Cette méthode commence par lier deux échantillons entre eux et ensuite recalcule les indices de dissimilarité afin de joindre à 
 
 ```{r}
 gt <- graph_perm_test(ps, "family_relationship", grouping = "host_subject_id",
