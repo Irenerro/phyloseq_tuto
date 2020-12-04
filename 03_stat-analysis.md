@@ -22,10 +22,12 @@ Irene Romero Rodríguez
       - [Just kidding: il reste une étape de preparation
         JA.](#just-kidding-il-reste-une-étape-de-preparation-ja.)
       - [Ordinations.](#ordinations.)
+  - [Apprentissage supervisé](#apprentissage-supervisé)
   - [Analyses Graphiques.](#analyses-graphiques.)
       - [Graphiques comparant deux
         tests](#graphiques-comparant-deux-tests)
       - [Neighbors joining](#neighbors-joining)
+  - [Modèle linéaire:](#modèle-linéaire)
 
 ``` r
 library(rmarkdown)
@@ -1251,7 +1253,15 @@ d’ordination. Cette méthode permet d’évaluer encore plus de facteurs
 pouvant affecter à la similarité/dissimilarité des échantillons. Ainsi
 ici on va pouvoir placer graphiquement les échantillons en contion de
 l’âge et de leur littière mais aussi par rapport aux données stoquées
-sur pslog (donc OTUs).
+sur pslog (donc OTUs). On va créer une CCA par littière, de plus afin de
+comparer les échantillons on va le faire en fonction de la prédominance
+des OTUs et donc des ordres, mais on va aussi utiliser les données de
+“site”, ce sont des données de l’environnement des souris dans le
+laboratoire qui ont été merged puis auxquelles on a assigné des scores
+de dissimilarité. Ainsi on peut comparer la différence entre les
+échantillons une fois de plus par sa composition en niveau de séquences
+(points), mais aussi par rapport aux informations liées à
+l’environnement (triangles).
 
 ``` r
 ps_ccpna <- ordinate(pslog, "CCA", formula = pslog ~ age_binned + family_relationship)
@@ -1297,6 +1307,23 @@ ggplot() +
 
 ![](03_stat-analysis_files/figure-gfm/unnamed-chunk-43-1.png)<!-- -->
 
+# Apprentissage supervisé
+
+Sur cette partie nous allons évaluer la capacité de R à faire des
+modèles statistiques en se basant sur des choses connues. Ainsi et en
+vue de la différence de microbiome des souris en fonction de l’âge nous
+allons créer un programme permettant de déterminer l’âge d’une sourtis
+en fonction de son microbiome. Ainsi on crée une variable TrainingMice
+sur laquelle on stocke des informations de 8 échantillons aléatoires.
+Sur un objet inTraining on assigne l’identité de ces souris. A partir de
+la matrice permettant de mettre en relation l’âde aux OTU, on crée un
+objet pour les souris inTraining et une autre pour les souris à tester
+(les 4 souris non échantillonnées). On crée finalement un objet qui
+“apprend” des données de training, l’objet plsFit, à partir de la
+fonction train. Finalement on utilise la fonction predict, à partir des
+données plsFit, sur les données de testing pour predire l’âge et on
+imprime la table permettant d’avoir les résultats.
+
 ``` r
 library(caret)
 ```
@@ -1322,6 +1349,11 @@ table(plsClasses, testing$age)
     ## plsClasses  (0,100] (100,400]
     ##   (0,100]        69         0
     ##   (100,400]       3        47
+
+Pour tester, on va grâce à une librarie randomForest, créer des
+microbiomes aléatoires (c’est une méthode différente de PLS). Grâce à
+ces microbiomes aléatoires on va faire à nouveau un rfFit et un
+rfClasses(les résultats des tests) et comparer les résultats.
 
 ``` r
 library(randomForest)
@@ -1365,6 +1397,14 @@ table(rfClasses, testing$age)
     ## rfClasses   (0,100] (100,400]
     ##   (0,100]        70         7
     ##   (100,400]       2        40
+
+Pour comparer les résultats on trace des graphiques avec deux types de
+données ou points (biplot) et on compare les résultats trouvés en
+fonction des rangs d’âge. Nous avons déjà expliqué pas mal de fois
+comment créer un graphique donc on ne va pas repéter à nouveau toutes
+les lignes de code. Mais ici on se centre sur le fait d’utiliser et
+différentier à partir des scores et des loadings (ce qui a été donnée
+et stoqué comme info et ce qui a été retrouvé).
 
 ``` r
 library(vegan)
@@ -1416,6 +1456,17 @@ ggplot() +
 
 ![](03_stat-analysis_files/figure-gfm/unnamed-chunk-46-1.png)<!-- -->
 
+Ce type de représentation graphique permet de mieux visualiser, en
+écartant les échantillons, les variables ayant un impact sur la
+discrimination de classes.
+
+Ensuite on trace un graphique permettant de voir ce que l’on obtient à
+l’issue de la fôret aléatoire. Ce graphique est contruit en joignant
+les points (diminuant la distance) en fonction de la fréquence
+d’apparition de ces échantillons en fonction de la parition (âge).
+Ainsi on voit deux groupes clairs et distincts qui sont différentiés par
+l’âge.
+
 ``` r
 rf_prox <- cmdscale(1 - rfFit$finalModel$proximity) %>%
   data.frame(sample_data(pslog)[inTrain, ])
@@ -1430,11 +1481,23 @@ ggplot(rf_prox) +
 
 ![](03_stat-analysis_files/figure-gfm/unnamed-chunk-47-1.png)<!-- -->
 
+Finalement et grâce au modèle aléatoire on cherche quelle bactérie
+permet vraiment à l’algorithme de déterminer dans quel groupe d’âge
+classer un échantillon. Ainsi on crée un vecteur qui permet de
+déterminer la famille et genre de la bactérie ayant le plus
+d’importance dans l’analyse.
+
 ``` r
 as.vector(tax_table(ps)[which.max(importance(rfFit$finalModel)), c("Family", "Genus")])
 ```
 
     ## [1] "Lachnospiraceae" "Roseburia"
+
+C’est la famille des Lachnospiraceae et le genre Roseburia. On trace un
+histogramme permettant de voir l’abondance de ces bactéries
+discriminantes pour voir si il y a d’autres groupes dans lesquels on le
+nombre de fois par échantillon, par groupe d’âge en fonction de
+l’abondance.
 
 ``` r
 impOtu <- as.vector(otu_table(pslog)[,which.max(importance(rfFit$finalModel))])
@@ -1446,7 +1509,10 @@ ggplot(maxImpDF) +   geom_histogram(aes(x = abund)) +
 
     ## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-48-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-49-1.png)<!-- -->
+
+On constate que les seules bactéries discriminantes sont les
+Lachnospiraceae Roseburia.
 
 # Analyses Graphiques.
 
@@ -1553,7 +1619,7 @@ ggplot(net_graph, aes(x = x, y = y, xend = xend, yend = yend), layout = "fruchte
   guides(col = guide_legend(override.aes = list(size = .5)))
 ```
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-50-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-51-1.png)<!-- -->
 
 Ce graphique nous permet voir à travers le réseau on voit que les points
 de la même couleur ont une tendance à être réliés entre eux, de la même
@@ -1592,7 +1658,7 @@ plotPerm1=plot_permutations(gt)
 grid.arrange(ncol = 2,  plotNet1, plotPerm1)
 ```
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-51-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-52-1.png)<!-- -->
 
 Grâce à ce graphique et notamment à sa contruction on peut créer un
 graphique de distribution des permutations en fonction du nombre
@@ -1612,20 +1678,28 @@ plotPerm2=plot_permutations(gt)
 grid.arrange(ncol = 2,  plotNet2, plotPerm2)
 ```
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-52-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-53-1.png)<!-- -->
 
-\#Linear modeling: Unlike ordination, the purpose of this analysis is
-not to develop a representation of many bacteria with respect to sample
-characteristics; rather, it is to describe how a single measure of
-overall community structure\[^1\] is associated with sample
-characteristics.
+# Modèle linéaire:
 
-\#\#mixed-effects model to study the relationship between mouse
-microbial community diversity and the age and litter variables that have
-been our focus so far.
+Dans cette étude on cherche, à l’inverse de sur les ordinations où on
+voulait classifier les échantillons en fonction des abondances
+microbiennes, aux différences au sein de celles ci par des facteurs
+externes comme l’âge ou l’environnement de croissance des souris: les
+effets mixtes.
 
-\#\#\#We first compute the Shannon diversity associated with each sample
-and join it with sample annotation.
+On commence par refaire des indices de Shannon, qui nous ont précédament
+permis d’étudier l’alpha-diversité et on les extrait en fonction de
+l’échantillon. On va une fois de plus réarranger nos objets en
+ajoutant ces données d’alpha-diversité. Lors de l’ajout on va tout de
+même classer nos échantillons à partir de ces indices d’alpha-diversité
+(et leur moyenne). On crée tout de même des données à partir des modèles
+que l’on vient de créer. (Tout comme sur l’étape d’apprentissage
+supervisé). Ensuite on trace dans des graphiques une étude de la
+repartition des échantillons pour chaque souris afin d’étudier les
+indices de Shannon trouvés pour chaque échantillon en fonction de l’âge
+de la souris, ainsi que les mesures statistiques (quartiles; médiane)
+associées.
 
 ``` r
 library("nlme")
@@ -1699,9 +1773,20 @@ ggplot(ps_samp %>% left_join(new_data)) +
 
     ## Joining, by = c("host_subject_id", "age_binned")
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-53-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-54-1.png)<!-- -->
 
 \#Hierarchical multiple testing
+
+Analyse statistique des relations entre l’âge des souris et leur
+abondance microbiologique. Pour ce faire au lieu de travailler avec les
+données normalisées logarithmiquement on utilise un autre modèle
+considérant une stabilisitation des variances au sein des échantillons.
+Ce modèle est disponible dans le package DESeq2. On compare les
+résultats obtenus par normalisation logarithmique et par stabilisation
+de la variance. Même si les résultats sont semblables (histogramme) la
+modélisation réalisée avec DESeq2 permet d’étudier et analyser les
+données d’abondance moyenne et faible (déplacement vers la gauche de la
+distribution).
 
 ``` r
 library("reshape2")
@@ -1827,7 +1912,11 @@ ggplot(abund_sums) +
   xlab("Total abundance within sample")
 ```
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-54-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-55-1.png)<!-- -->
+
+Ensuite on fais une étude hierarchique des éléments ayant un impact sur
+la variabilité des résultats trouvés sur les échantillons. Cette
+évaluation se fait à travers les p-values.
 
 ``` r
 library("structSSI")
@@ -1905,7 +1994,17 @@ tax %>%
     ## 9               ***
     ## 10              ***
 
+Grâces à ces tables on peut déterminer quelles familles bactériennes
+sont associées au différences d’abondance, tout comme dans la
+modelisation avec la fôret aléatoire on trouve que c’est la famille des
+Lachnospiraceae qui joue un rôle dans la différenciation en groupes
+d’âge.
+
 \#Multitable techniques
+
+Sur cette partie on télécharge et analyse des nouvelles données afin de
+pouvoir associer les souris et leur microbiome à des fonctions
+métaboliques précises définies à partir des bactéries.
 
 ``` r
 metab <- read.csv("https://raw.githubusercontent.com/spholmes/F1000_workflow/master/data/metabolites.csv",row.names = 1)
@@ -1918,6 +2017,8 @@ microbe
     ## otu_table()   OTU Table:         [ 20609 taxa and 12 samples ]
     ## tax_table()   Taxonomy Table:    [ 20609 taxa by 6 taxonomic ranks ]
     ## phy_tree()    Phylogenetic Tree: [ 20609 tips and 20607 internal nodes ]
+
+On crée un objet phyloseq et on normalise les données.
 
 ``` r
 library("genefilter")
@@ -1951,6 +2052,11 @@ dim(metab)
 
     ## [1] 405  12
 
+Afin de créer la PCA on sélectionne des données (penalty) qui permettent
+d’assigner coefficient du vecteur canonique pour que les données des
+matrices x et y puissent être représentées dans la même base (et donc
+même espace vectoriel).
+
 ``` r
 library(PMA)
 cca_res <- CCA(t(X),  t(metab), penaltyx = .15, penaltyz = .15)
@@ -1972,6 +2078,13 @@ cca_res
     ## Penalty for x: L1 bound is  0.15 
     ## Penalty for z: L1 bound is  0.15 
     ## Cor(Xu,Zv):  0.974
+
+Ces dernières étapes on permis de créer à travers des matrices contenant
+les informations sur les microbes et sur les métabolites, la création
+d’un espace vectoriel permettant de faire la représentation graphique
+de la PCA. Pour ce faire on a choisi 6 microbes et 11 métabolites afin
+d’expliquer la covariation des échantillons (et donc de déterminer les
+vecteurs). On peut maintenant tracer la PCA.
 
 ``` r
 combined <- cbind(t(X[cca_res$u != 0, ]),
@@ -2004,4 +2117,10 @@ ggplot() +  geom_point(data = sample_info,
        fill = "Feature Type", col = "Sample Type")
 ```
 
-![](03_stat-analysis_files/figure-gfm/unnamed-chunk-62-1.png)<!-- -->
+![](03_stat-analysis_files/figure-gfm/unnamed-chunk-63-1.png)<!-- -->
+
+Grâce à ce triplot on peut observer les éléments ayant un impact sur la
+variance entre les échantillons de façon claire et simple sans avoir
+beaucoup de complications avec des centaines de points additionnels. On
+remarque ici que les variances les plus importantes sont dues au type
+d’échantillon qui est lié à la diete des souris (PD et ST).
