@@ -183,7 +183,13 @@ Ensuite on procède à utiliser la fonction filterAndTrim du package de
 Dada2 qui permet d’enlever les nucléotides ayant un pire score de
 qualité. Pour ce faire on défini tout de même des paramètres standard
 (maxN=0, truncQ=2, rm.phix=TRUE and maxEE=2) selon lesquels il faut
-filtrer les reads:
+filtrer les reads. On va prendre les données de fnFs qui vont donner des
+filtFs; des fnRs qui vont donner des filtRs. Et on va tronquer
+respectivement au niveau de la position 240 et 160 afin d’enelver un
+maximum de la séquence ayant un moins bon score de qualité. Cependant on
+laise toujours une marge pour le chevauchement. D’autre part ici on a
+pas de primers donc on en fait pas un trimLeft qui permet d’enlèver
+aussi des bases en début de séquence.
 
 ``` r
 out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160),
@@ -262,12 +268,12 @@ exemple C donne un A, est plus élevée.
 
 Dans un jeu de données avec 10 séquences, on peut voir combien de
 séquences sont présentées répétées donc une séq 2 fois et une autre 8
-fois. Donc deux bactéries une présente au 20% et la deuxième au 80%.
+fois. Donc deux bactéries, une présente au 20% et la deuxième au 80%.
 
 Dans ce cas on a beaucoup de reads donc une fonction permet de voir
-combien de séquences uniques. Or il peut avoir plusieurs plasmides
-(jusqu’à 14 par bactérie). De plus il y a la profondeur de séquençage à
-tenir en compte aussi \!
+combien de séquences uniques il y a. Or il peut avoir plusieurs
+plasmides (jusqu’à 14 par bactérie). De plus il y a la profondeur de
+séquençage à tenir en compte aussi \!
 
 ``` r
 dadaFs <- dada(filtFs, err=errF, multithread=TRUE)
@@ -438,17 +444,20 @@ head(mergers[[1]])
     ## 5       345       5       6    148         0      0      1   TRUE
     ## 6       282       6       5    148         0      0      2   TRUE
 
-Pour le premier cas, sur 4384 reads, 3961 ont pu être merged, cela veut
+Pour le premier cas, sur 6907 reads, 6551 ont pu être merged, cela veut
 dire qu’il y avait certains où soit R1 soit R2 manquait. Les 3961 reads
-ont été merged en 90 contigs. Sur data frame on peut voir cette
-séquence.
+ont été merged en 106 contigs uniques (donc non repétés). Sur data frame
+on peut voir cette séquence.
 
 # Construction d’une table d’observation:
 
 On construit maintenant une table d’observation à partir de ces contigs.
 On peut faire ça grâce à la fonction makeSequenceTable et de l’objet
 mergers. Ensuite on demande grâce à la fonction dim les dimensions de
-cette table d’observation.
+cette table d’observation. Nous avons 20 rangées (nombre d’échantillons)
+et 293 colonnes, correspondante aux séquences. Cette table permet de
+voir la fréquence d’apparition de chaque séquence unique (au total 293)
+au sein de chaque échantillon.
 
 ``` r
 seqtab <- makeSequenceTable(mergers)
@@ -457,7 +466,10 @@ dim(seqtab)
 
     ## [1]  20 293
 
-Longueur distribution des séquences dans cette table d’observation:
+On veut voir tout de même la longueur en nucléotides de chaque une de
+ces séquences. On contruit une table montrant la taille des séquences
+qui sont sur la table seq tab. Une seule séquence a 251 nucléotides; 88
+ont 252 nucléotides; 196 ont 253…
 
 ``` r
 # Inspect distribution of sequence lengths
@@ -564,7 +576,7 @@ Ensuite avec la fonction assignTaxonomy, on se sert de la table de
 seqtab.nochim et on assigne une taxonomie aux différentes séquences.
 
 ``` r
-taxa <- assignTaxonomy(seqtab.nochim, "~/silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE)
+taxa <- assignTaxonomy(seqtab.nochim, "~/phyloseq_tuto/silva_nr99_v138_wSpecies_train_set.fa.gz", multithread=TRUE)
 ```
 
 On choisi le fichier en fonction d’où il a été sauvegarde ; et quel lien
@@ -604,7 +616,7 @@ assignment pour faire une assignation taxonomique au niveau de l’espèce
 en se basant sur un match exact et les séquences de référence.
 
 ``` r
-taxa<- addSpecies(taxa, "~/silva_species_assignment_v138.fa.gz")
+taxa<- addSpecies(taxa, "~/phyloseq_tuto/silva_species_assignment_v138.fa.gz")
 ```
 
 ``` r
@@ -677,3 +689,9 @@ les données ont été traitées. Tout ce package nous a donc permis de
 faire un traitement de données de façon rapide et efficace. Cependant
 ces données doivent être exploitées par la suite. Afin de faire cet
 analyse de données nous allons travailler avec phyloseq.
+
+Afin de pouvoir conserver l’environnement de travail, on le sauvegarde.
+Ensuite, sur le notebook de phyloseq, on va importer cet environnement
+de travail, ce qui va nous permettre de reprendre nos activités
+d’analyse à partir des données déjà traitées et des objets crées sur
+cette partie.
