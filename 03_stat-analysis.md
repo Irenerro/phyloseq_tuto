@@ -11,6 +11,8 @@ Irene Romero Rodríguez
   - [Ajout d’échantillons](#ajout-déchantillons)
   - [Filtrage](#filtrage)
       - [Filtage taxonomique.](#filtage-taxonomique.)
+          - [Rangs dans le jeu de
+            données.](#rangs-dans-le-jeu-de-données.)
       - [Filtration de prévalence.](#filtration-de-prévalence.)
   - [Arbre phylogénétique ou regroupement des
     taxons.](#arbre-phylogénétique-ou-regroupement-des-taxons.)
@@ -22,10 +24,17 @@ Irene Romero Rodríguez
       - [Just kidding: il reste une étape de preparation
         JA.](#just-kidding-il-reste-une-étape-de-preparation-ja.)
       - [Ordinations.](#ordinations.)
+          - [PCoA](#pcoa)
+          - [Double PCoA (DPCoA).](#double-pcoa-dpcoa.)
+          - [Weighted Unifrac](#weighted-unifrac)
+          - [PCA par rangs](#pca-par-rangs)
+          - [Analyse de correspondance canonique
+            (CCA).](#analyse-de-correspondance-canonique-cca.)
   - [Apprentissage supervisé](#apprentissage-supervisé)
   - [Analyses Graphiques.](#analyses-graphiques.)
       - [Graphiques comparant deux
         tests](#graphiques-comparant-deux-tests)
+          - [Minimum Spanning Tree (MST)](#minimum-spanning-tree-mst)
       - [Neighbors joining](#neighbors-joining)
   - [Modèle linéaire:](#modèle-linéaire)
 
